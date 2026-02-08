@@ -40,10 +40,13 @@ const IngredientsSpotlight = () => {
           transition={{ duration: 0.7 }}
           className="text-center mb-16"
         >
-          <p className="text-sm tracking-[0.3em] uppercase text-primary font-body mb-4">Ingredient Spotlight</p>
+          <p className="text-sm tracking-[0.3em] uppercase text-primary font-body mb-4">Full Ingredient Transparency</p>
           <h2 className="font-display text-4xl md:text-5xl lg:text-6xl font-light">
-            Nature Meets <span className="italic text-gold-gradient">Science</span>
+            Because Queens Deserve to <span className="italic text-gold-gradient">Know</span>
           </h2>
+          <p className="text-muted-foreground font-body mt-4 max-w-3xl mx-auto">
+            We believe in complete honesty. Below is the full INCI ingredient list for our core formulas. Ingredients listed in descending order of predominance. No mercury, no hydroquinone, no steroids. Crafted with care in Kenya.
+          </p>
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
@@ -69,10 +72,10 @@ const IngredientsSpotlight = () => {
           initial={{ opacity: 0 }}
           animate={inView ? { opacity: 1 } : {}}
           transition={{ delay: 0.6, duration: 0.6 }}
-          className="flex flex-wrap justify-center gap-6 md:gap-10 mb-16"
+          className="grid grid-cols-2 md:flex md:flex-wrap justify-center gap-4 md:gap-6 lg:gap-10 mb-16"
         >
           {trustBadges.map(({ icon: Icon, label }) => (
-            <div key={label} className="flex items-center gap-2 px-5 py-3 border border-primary/20 rounded-sm">
+            <div key={label} className="flex items-center gap-2 px-4 py-3 border border-primary/20 rounded-sm justify-center">
               <Icon className="w-5 h-5 text-primary" />
               <span className="font-body text-xs tracking-widest uppercase">{label}</span>
             </div>
@@ -99,7 +102,10 @@ const IngredientsSpotlight = () => {
               animate={{ opacity: 1, height: "auto" }}
               className="mt-8 luxury-card text-left"
             >
-              <h4 className="font-display text-lg font-semibold text-primary mb-4">Full Ingredient Transparency</h4>
+              <h4 className="font-display text-lg font-semibold text-primary mb-4">Full Ingredient Transparency – Because Queens Deserve to Know</h4>
+              <p className="font-body text-sm text-muted-foreground leading-loose mb-4">
+                We believe in complete honesty. Below is the full INCI ingredient list for our core formulas (shared base across the line, with minor variations per product—check individual product pages for exacts). Ingredients listed in descending order of predominance. No mercury, no hydroquinone, no steroids. Crafted with care in Kenya.
+              </p>
               <p className="font-body text-sm text-muted-foreground leading-loose">
                 {inciList.join(" · ")}
               </p>

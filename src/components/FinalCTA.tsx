@@ -1,5 +1,6 @@
 import { motion, useInView } from "framer-motion";
 import { useRef } from "react";
+import { Link } from "react-router-dom";
 
 const FinalCTA = () => {
   const ref = useRef(null);
@@ -22,12 +23,12 @@ const FinalCTA = () => {
             Free Shipping over KSh 5,000 · Limited Launch Stock
           </p>
           <div className="line-gold max-w-xs mx-auto mb-10" />
-          <a
-            href="#shop"
+          <Link
+            to="/shop"
             className="inline-flex items-center justify-center px-10 py-4 bg-gold-gradient text-primary-foreground font-body font-bold text-sm tracking-widest uppercase rounded-sm hover:opacity-90 transition-opacity"
           >
             Shop Queen Koba →
-          </a>
+          </Link>
         </motion.div>
       </div>
     </section>

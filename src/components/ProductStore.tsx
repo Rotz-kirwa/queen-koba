@@ -17,15 +17,26 @@ const ProductCard = ({ product, index }: { product: typeof products[0]; index: n
       initial={{ opacity: 0, y: 40 }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{ delay: index * 0.1, duration: 0.6 }}
-      className={`luxury-card flex flex-col ${product.isBundle ? "md:col-span-2 lg:col-span-3 border-primary/40" : ""}`}
+      className={`luxury-card flex flex-col overflow-hidden p-0 ${product.isBundle ? "border-primary/40" : ""}`}
     >
-      {product.isBundle && (
-        <div className="bg-gold-gradient text-primary-foreground text-xs font-body font-bold tracking-widest uppercase px-4 py-2 rounded-sm self-start mb-4">
-          15% OFF — Best Value
+      {product.image && (
+        <div className="w-full overflow-hidden">
+          <img 
+            src={product.image} 
+            alt={product.name}
+            className="w-full h-56 object-cover"
+            loading="lazy"
+          />
         </div>
       )}
 
-      <div className="flex-1">
+      <div className="p-8 flex flex-col flex-1">
+        {product.isBundle && (
+          <div className="bg-gold-gradient text-primary-foreground text-xs font-body font-bold tracking-widest uppercase px-4 py-2 rounded-sm self-start mb-4 -mt-2">
+            15% OFF — Best Value
+          </div>
+        )}
+
         <h3 className="font-display text-xl md:text-2xl font-semibold mb-2">{product.name}</h3>
         <p className="text-sm text-muted-foreground font-body mb-4 leading-relaxed">{product.description}</p>
 
@@ -42,9 +53,8 @@ const ProductCard = ({ product, index }: { product: typeof products[0]; index: n
             {product.rating}/5 ({product.reviews} reviews)
           </span>
         </div>
-      </div>
 
-      <div className="flex items-end justify-between gap-4 mt-auto pt-4 border-t border-border/50">
+        <div className="flex items-end justify-between gap-4 mt-auto pt-4 border-t border-border/50">
         <div>
           <span className="font-display text-2xl font-semibold text-primary">
             KSh {product.price.toLocaleString()}
@@ -83,6 +93,7 @@ const ProductCard = ({ product, index }: { product: typeof products[0]; index: n
             {product.isBundle ? "Get the Bundle" : "Add"}
           </button>
         </div>
+      </div>
       </div>
     </motion.div>
   );
