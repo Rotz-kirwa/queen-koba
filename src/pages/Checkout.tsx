@@ -1,33 +1,76 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCart } from "@/context/CartContext";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CreditCard, Smartphone, Building2, CheckCircle2, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { paymentAPI, ordersAPI } from "@/lib/api";
 
-const paymentMethods = {
-  Kenya: [
-    { id: "mpesa", name: "M-Pesa", icon: Smartphone, description: "Pay with M-Pesa mobile money" },
-    { id: "airtel", name: "Airtel Money", icon: Smartphone, description: "Pay with Airtel Money" },
-    { id: "card", name: "Visa/Mastercard", icon: CreditCard, description: "Pay with credit or debit card" },
-    { id: "bank", name: "Bank Transfer", icon: Building2, description: "Direct bank transfer" },
-  ],
-  Uganda: [
-    { id: "mtn", name: "MTN Mobile Money", icon: Smartphone, description: "Pay with MTN Mobile Money" },
-    { id: "airtel", name: "Airtel Money", icon: Smartphone, description: "Pay with Airtel Money" },
-    { id: "card", name: "Visa/Mastercard", icon: CreditCard, description: "Pay with credit or debit card" },
-  ],
-  Burundi: [
-    { id: "lumicash", name: "Lumicash", icon: Smartphone, description: "Pay with Lumicash" },
-    { id: "ecocash", name: "EcoCash", icon: Smartphone, description: "Pay with EcoCash" },
-    { id: "bank", name: "Bank Transfer", icon: Building2, description: "Direct bank transfer" },
-  ],
-  Congo: [
-    { id: "orange", name: "Orange Money", icon: Smartphone, description: "Pay with Orange Money" },
-    { id: "vodacom", name: "Vodacom M-Pesa", icon: Smartphone, description: "Pay with Vodacom M-Pesa" },
-    { id: "bank", name: "Bank Transfer", icon: Building2, description: "Direct bank transfer" },
-  ],
+const getPaymentIcon = (type: string) => {
+  if (type.includes('card') || type.includes('visa') || type.includes('mastercard')) return CreditCard;
+  if (type.includes('bank') || type.includes('transfer')) return Building2;
+  return Smartphone;
 };
+
+interface PaymentMethod {
+  id: string;
+  name: string;
+  type: string;
+  description: string;
+  logo?: string;
+}
+
+const paymentLogos: Record<string, string> = {
+  mpesa: "https://pbs.twimg.com/ext_tw_video_thumb/1181852139011936256/pu/img/1UCUl2bSj2RCyq6H.jpg",
+  airtel_money: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQzoFx31kmrStLhhxN53irFXTILQ93sX9hkSQ&s",
+  card: "https://i.pinimg.com/736x/bd/16/2c/bd162c26d6a49bbd39126cd9e5e79d19.jpg",
+  bank_transfer: "https://i.pinimg.com/736x/9b/3d/bd/9b3dbd2bce3d86a3d63a79b1ecf86b4e.jpg",
+  mtn_mobile_money: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSGvdmkSOboNGNU79JdQJe3lvmojdN64iSfwQ&s",
+  ecocash: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/EcoCash_Logo.svg/1200px-EcoCash_Logo.svg.png",
+  lumicash: "https://play-lh.googleusercontent.com/9XKZHKBLqsLYYqJYYqJYYqJYYqJYYqJYYqJYYqJYYqJYYqJYYqJYYqJYYqJYYqJYYqJY",
+  orange_money: "https://i.pinimg.com/736x/e6/b1/69/e6b169c06abd09abf3e54dfb5b1a1abd.jpg",
+  vodacom_mpesa: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRkc_60sjm9kRnV0NNknGFr4YHywQ4dy5J9xA&s",
+};
+
+const currencyConfig: Record<string, { code: string; symbol: string; rate: number }> = {
+  Kenya: { code: "KES", symbol: "KSh", rate: 1 },
+  Uganda: { code: "UGX", symbol: "UGX", rate: 28.5 },
+  Burundi: { code: "BIF", symbol: "FBu", rate: 285 },
+  Congo: { code: "CDF", symbol: "FC", rate: 280 },
+};
+
+const formatCurrency = (amount: number, country: string) => {
+  const config = currencyConfig[country];
+  const converted = Math.round(amount * config.rate);
+  return `${config.symbol} ${converted.toLocaleString()}`;
+};
+
+const getFallbackMethods = (country: string): PaymentMethod[] => {
+  const methods: Record<string, PaymentMethod[]> = {
+    Kenya: [
+      { id: "mpesa", name: "M-Pesa", type: "mobile_money", description: "Mobile money (most popular in Kenya)", logo: paymentLogos.mpesa },
+      { id: "airtel_money", name: "Airtel Money", type: "mobile_money", description: "Mobile money alternative", logo: paymentLogos.airtel_money },
+      { id: "card", name: "Visa/Mastercard", type: "card", description: "Credit/Debit cards", logo: paymentLogos.card },
+      { id: "bank_transfer", name: "Bank Transfer", type: "bank_transfer", description: "Direct bank transfer", logo: paymentLogos.bank_transfer },
+    ],
+    Uganda: [
+      { id: "mtn_mobile_money", name: "MTN Mobile Money", type: "mobile_money", description: "Primary mobile money service", logo: paymentLogos.mtn_mobile_money },
+      { id: "airtel_money", name: "Airtel Money", type: "mobile_money", description: "Alternative mobile money", logo: paymentLogos.airtel_money },
+      { id: "card", name: "Visa/Mastercard", type: "card", description: "Credit/Debit cards", logo: paymentLogos.card },
+    ],
+    Burundi: [
+      { id: "lumicash", name: "Lumicash", type: "mobile_money", description: "Mobile money service", logo: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTa2EsR4opmeHo-7AZdQWOXzAopmCAtyTWJbA&s" },
+      { id: "ecocash", name: "EcoCash", type: "mobile_money", description: "Mobile payment platform", logo: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRxM9aLsK9Xzy2xfcGjsciN7ge8p8KdzqhvOA&s" },
+      { id: "bank_transfer", name: "Bank Transfer", type: "bank_transfer", description: "Direct bank transfer", logo: paymentLogos.bank_transfer },
+    ],
+    Congo: [
+      { id: "orange_money", name: "Orange Money", type: "mobile_money", description: "Mobile money service", logo: paymentLogos.orange_money },
+      { id: "vodacom_mpesa", name: "Vodacom M-Pesa", type: "mobile_money", description: "Mobile money platform", logo: paymentLogos.vodacom_mpesa },
+      { id: "bank_transfer", name: "Bank Transfer", type: "bank_transfer", description: "Direct bank transfer", logo: paymentLogos.bank_transfer },
+    ],
+  };
+  return methods[country] || methods.Kenya;
+}
 
 const Checkout = () => {
   const { items, total, clearCart } = useCart();
@@ -37,6 +80,16 @@ const Checkout = () => {
   const [step, setStep] = useState(1);
   const [country, setCountry] = useState("Kenya");
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [paymentDetails, setPaymentDetails] = useState({
+    phoneNumber: "",
+    cardNumber: "",
+    cardExpiry: "",
+    cardCvv: "",
+    accountNumber: "",
+    bankName: "",
+  });
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -46,19 +99,70 @@ const Checkout = () => {
     postalCode: "",
   });
 
+  useEffect(() => {
+    const fetchPaymentMethods = async () => {
+      // Start with fallback methods immediately
+      const fallbackMethods = getFallbackMethods(country);
+      setPaymentMethods(fallbackMethods);
+      
+      try {
+        setLoading(true);
+        const response = await paymentAPI.getByCountry(country);
+        const methods = Array.isArray(response) ? response : response?.payment_methods || [];
+        if (methods.length > 0) {
+          setPaymentMethods(methods);
+        }
+        setPaymentMethod("");
+      } catch (error) {
+        console.error('Failed to fetch payment methods:', error);
+        // Keep fallback methods already set
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPaymentMethods();
+  }, [country]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handlePaymentInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setPaymentDetails({ ...paymentDetails, [e.target.name]: e.target.value });
+  };
+
+  const getPaymentMethodType = () => {
+    const method = paymentMethods.find(m => m.id === paymentMethod);
+    if (!method) return null;
+    if (method.type === 'card') return 'card';
+    if (method.type === 'bank_transfer') return 'bank';
+    return 'mobile';
+  };
+
   const handleSubmit = async () => {
-    // TODO: Integrate with backend API
-    toast({
-      title: "Order Placed Successfully!",
-      description: `Your order of KSh ${total.toLocaleString()} has been received.`,
-    });
-    
-    clearCart();
-    setTimeout(() => navigate("/"), 2000);
+    try {
+      setLoading(true);
+      
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      toast({
+        title: "Order Placed Successfully!",
+        description: `Your order of ${formatCurrency(total, country)} has been received. You will receive a payment prompt shortly.`,
+      });
+      
+      clearCart();
+      setTimeout(() => navigate("/"), 2000);
+    } catch (error) {
+      console.error('Order submission failed:', error);
+      toast({
+        title: "Order Failed",
+        description: "Failed to place order. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (items.length === 0) {
@@ -93,7 +197,7 @@ const Checkout = () => {
           <div className="lg:col-span-2 space-y-6">
             {/* Progress Steps */}
             <div className="flex items-center justify-between mb-8">
-              {[1, 2, 3].map((s) => (
+              {[1, 2, 3, 4].map((s) => (
                 <div key={s} className="flex items-center flex-1">
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center font-body font-bold ${
@@ -102,7 +206,7 @@ const Checkout = () => {
                   >
                     {step > s ? <CheckCircle2 className="w-5 h-5" /> : s}
                   </div>
-                  {s < 3 && (
+                  {s < 4 && (
                     <div className={`flex-1 h-1 mx-2 ${step > s ? "bg-primary" : "bg-muted"}`} />
                   )}
                 </div>
@@ -221,27 +325,36 @@ const Checkout = () => {
               >
                 <h2 className="font-display text-3xl font-semibold mb-6">Payment Method</h2>
                 <p className="text-muted-foreground font-body mb-6">Select your preferred payment method for {country}</p>
-                <div className="grid md:grid-cols-2 gap-4 mb-6">
-                  {paymentMethods[country as keyof typeof paymentMethods].map((method) => (
-                    <button
-                      key={method.id}
-                      onClick={() => setPaymentMethod(method.id)}
-                      className={`p-6 border-2 rounded-sm text-left transition-all ${
-                        paymentMethod === method.id
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      <div className="flex items-start gap-4">
-                        <method.icon className="w-6 h-6 text-primary flex-shrink-0" />
-                        <div>
-                          <h3 className="font-display text-lg font-semibold mb-1">{method.name}</h3>
-                          <p className="text-sm text-muted-foreground font-body">{method.description}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                {loading ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground font-body">Loading payment methods...</p>
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-4 mb-6">
+                    {paymentMethods.map((method) => (
+                      <button
+                        key={method.id}
+                        onClick={() => setPaymentMethod(method.id)}
+                        className={`relative h-32 border-4 rounded-lg overflow-hidden transition-all ${
+                          paymentMethod === method.id
+                            ? "border-primary ring-4 ring-primary/30"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <img 
+                          src={method.logo} 
+                          alt={method.name} 
+                          className="w-full h-full object-cover"
+                        />
+                        {paymentMethod === method.id && (
+                          <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                            <CheckCircle2 className="w-12 h-12 text-primary drop-shadow-lg" />
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="flex gap-4">
                   <button
                     onClick={() => setStep(1)}
@@ -254,14 +367,150 @@ const Checkout = () => {
                     disabled={!paymentMethod}
                     className="flex-1 py-4 bg-gold-gradient text-primary-foreground font-body font-bold text-sm tracking-widest uppercase rounded-sm hover:opacity-90 transition-opacity disabled:opacity-50"
                   >
+                    Continue to Payment
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Step 3: Payment Details */}
+            {step === 3 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="luxury-card"
+              >
+                <h2 className="font-display text-3xl font-semibold mb-6">Payment Details</h2>
+                <p className="text-muted-foreground font-body mb-6">
+                  {paymentMethods.find(m => m.id === paymentMethod)?.name}
+                </p>
+
+                {/* Mobile Money Payment */}
+                {getPaymentMethodType() === 'mobile' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-body mb-2">Phone Number *</label>
+                      <input
+                        type="tel"
+                        name="phoneNumber"
+                        value={paymentDetails.phoneNumber}
+                        onChange={handlePaymentInputChange}
+                        placeholder="e.g. 254712345678"
+                        className="w-full px-4 py-3 bg-background border border-border rounded-sm focus:outline-none focus:border-primary"
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">You will receive a payment prompt on this number</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Card Payment */}
+                {getPaymentMethodType() === 'card' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-body mb-2">Card Number *</label>
+                      <input
+                        type="text"
+                        name="cardNumber"
+                        value={paymentDetails.cardNumber}
+                        onChange={handlePaymentInputChange}
+                        placeholder="1234 5678 9012 3456"
+                        maxLength={19}
+                        className="w-full px-4 py-3 bg-background border border-border rounded-sm focus:outline-none focus:border-primary"
+                        required
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-body mb-2">Expiry Date *</label>
+                        <input
+                          type="text"
+                          name="cardExpiry"
+                          value={paymentDetails.cardExpiry}
+                          onChange={handlePaymentInputChange}
+                          placeholder="MM/YY"
+                          maxLength={5}
+                          className="w-full px-4 py-3 bg-background border border-border rounded-sm focus:outline-none focus:border-primary"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-body mb-2">CVV *</label>
+                        <input
+                          type="text"
+                          name="cardCvv"
+                          value={paymentDetails.cardCvv}
+                          onChange={handlePaymentInputChange}
+                          placeholder="123"
+                          maxLength={4}
+                          className="w-full px-4 py-3 bg-background border border-border rounded-sm focus:outline-none focus:border-primary"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Bank Transfer */}
+                {getPaymentMethodType() === 'bank' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-body mb-2">Bank Name *</label>
+                      <select
+                        name="bankName"
+                        value={paymentDetails.bankName}
+                        onChange={handlePaymentInputChange}
+                        className="w-full px-4 py-3 bg-background border border-border rounded-sm focus:outline-none focus:border-primary"
+                        required
+                      >
+                        <option value="">Select your bank</option>
+                        <option value="equity">Equity Bank</option>
+                        <option value="kcb">KCB Bank</option>
+                        <option value="coop">Co-operative Bank</option>
+                        <option value="absa">ABSA Bank</option>
+                        <option value="stanbic">Stanbic Bank</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-body mb-2">Account Number *</label>
+                      <input
+                        type="text"
+                        name="accountNumber"
+                        value={paymentDetails.accountNumber}
+                        onChange={handlePaymentInputChange}
+                        placeholder="Enter your account number"
+                        className="w-full px-4 py-3 bg-background border border-border rounded-sm focus:outline-none focus:border-primary"
+                        required
+                      />
+                    </div>
+                    <div className="bg-secondary/50 p-4 rounded-sm">
+                      <p className="text-sm font-body text-muted-foreground">
+                        You will receive bank transfer instructions via email after placing your order.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-4 mt-6">
+                  <button
+                    onClick={() => setStep(2)}
+                    className="flex-1 py-4 border border-border text-foreground font-body font-bold text-sm tracking-widest uppercase rounded-sm hover:bg-secondary transition-colors"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={() => setStep(4)}
+                    className="flex-1 py-4 bg-gold-gradient text-primary-foreground font-body font-bold text-sm tracking-widest uppercase rounded-sm hover:opacity-90 transition-opacity"
+                  >
                     Review Order
                   </button>
                 </div>
               </motion.div>
             )}
 
-            {/* Step 3: Review & Confirm */}
-            {step === 3 && (
+            {/* Step 4: Review & Confirm */}
+            {step === 4 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -281,22 +530,32 @@ const Checkout = () => {
                   </div>
                   <div>
                     <h3 className="font-display text-xl font-semibold mb-3">Payment Method</h3>
-                    <p className="text-sm font-body text-muted-foreground">
-                      {paymentMethods[country as keyof typeof paymentMethods].find(m => m.id === paymentMethod)?.name}
+                    <p className="text-sm font-body text-muted-foreground mb-1">
+                      {paymentMethods.find(m => m.id === paymentMethod)?.name}
                     </p>
+                    {getPaymentMethodType() === 'mobile' && paymentDetails.phoneNumber && (
+                      <p className="text-sm font-body text-muted-foreground">Phone: {paymentDetails.phoneNumber}</p>
+                    )}
+                    {getPaymentMethodType() === 'card' && paymentDetails.cardNumber && (
+                      <p className="text-sm font-body text-muted-foreground">Card: **** **** **** {paymentDetails.cardNumber.slice(-4)}</p>
+                    )}
+                    {getPaymentMethodType() === 'bank' && paymentDetails.bankName && (
+                      <p className="text-sm font-body text-muted-foreground">Bank: {paymentDetails.bankName}</p>
+                    )}
                   </div>
                   <div className="flex gap-4">
                     <button
-                      onClick={() => setStep(2)}
+                      onClick={() => setStep(3)}
                       className="flex-1 py-4 border border-border text-foreground font-body font-bold text-sm tracking-widest uppercase rounded-sm hover:bg-secondary transition-colors"
                     >
                       Back
                     </button>
                     <button
                       onClick={handleSubmit}
-                      className="flex-1 py-4 bg-gold-gradient text-primary-foreground font-body font-bold text-sm tracking-widest uppercase rounded-sm hover:opacity-90 transition-opacity"
+                      disabled={loading}
+                      className="flex-1 py-4 bg-gold-gradient text-primary-foreground font-body font-bold text-sm tracking-widest uppercase rounded-sm hover:opacity-90 transition-opacity disabled:opacity-50"
                     >
-                      Place Order
+                      {loading ? "Processing..." : "Place Order"}
                     </button>
                   </div>
                 </div>
@@ -316,7 +575,7 @@ const Checkout = () => {
                       <p className="text-xs text-muted-foreground font-body">Qty: {item.quantity}</p>
                     </div>
                     <p className="font-body text-sm font-semibold">
-                      KSh {(item.product.price * item.quantity).toLocaleString()}
+                      {formatCurrency(item.product.price * item.quantity, country)}
                     </p>
                   </div>
                 ))}
@@ -324,15 +583,15 @@ const Checkout = () => {
               <div className="space-y-3 pt-4 border-t border-border">
                 <div className="flex justify-between font-body text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span>KSh {total.toLocaleString()}</span>
+                  <span>{formatCurrency(total, country)}</span>
                 </div>
                 <div className="flex justify-between font-body text-sm">
                   <span className="text-muted-foreground">Shipping</span>
-                  <span className="text-primary">{total >= 5000 ? "FREE" : "KSh 500"}</span>
+                  <span className="text-primary">{total >= 5000 ? "FREE" : formatCurrency(500, country)}</span>
                 </div>
                 <div className="flex justify-between font-display text-xl font-semibold pt-3 border-t border-border">
                   <span>Total</span>
-                  <span className="text-primary">KSh {(total >= 5000 ? total : total + 500).toLocaleString()}</span>
+                  <span className="text-primary">{formatCurrency(total >= 5000 ? total : total + 500, country)}</span>
                 </div>
               </div>
             </div>
