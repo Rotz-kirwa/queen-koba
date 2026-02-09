@@ -152,7 +152,7 @@ const Checkout = () => {
       });
       
       clearCart();
-      setTimeout(() => navigate("/"), 2000);
+      setTimeout(() => navigate("/shop"), 2000);
     } catch (error) {
       console.error('Order submission failed:', error);
       toast({
