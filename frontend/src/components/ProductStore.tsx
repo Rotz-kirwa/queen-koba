@@ -1,15 +1,34 @@
 import { motion, useInView } from "framer-motion";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Star, Plus, Minus, ShoppingBag } from "lucide-react";
-import { products } from "@/data/products";
 import { useCart } from "@/context/CartContext";
 import productsImg from "@/assets/products-bg.jpg";
 
-const ProductCard = ({ product, index }: { product: typeof products[0]; index: number }) => {
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+interface Product {
+  _id: string;
+  name: string;
+  description: string;
+  category: string;
+  prices: {
+    KES: { amount: number; symbol: string; country: string };
+  };
+  in_stock: boolean;
+  image_url?: string;
+  rating?: number;
+  reviews?: number;
+}
+
+const ProductCard = ({ product, index }: { product: Product; index: number }) => {
   const [qty, setQty] = useState(1);
   const { addToCart } = useCart();
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-50px" });
+
+  const price = product.prices?.KES?.amount || 0;
+  const rating = product.rating || 4.5;
+  const reviews = product.reviews || 0;
 
   return (
     <motion.div
@@ -17,12 +36,12 @@ const ProductCard = ({ product, index }: { product: typeof products[0]; index: n
       initial={{ opacity: 0, y: 40 }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{ delay: index * 0.1, duration: 0.6 }}
-      className={`luxury-card flex flex-col overflow-hidden p-0 ${product.isBundle ? "border-primary/40" : ""}`}
+      className="luxury-card flex flex-col overflow-hidden p-0"
     >
-      {product.image && (
+      {product.image_url && (
         <div className="w-full overflow-hidden">
           <img 
-            src={product.image} 
+            src={product.image_url} 
             alt={product.name}
             className="w-full h-56 object-cover"
             loading="lazy"
@@ -31,12 +50,6 @@ const ProductCard = ({ product, index }: { product: typeof products[0]; index: n
       )}
 
       <div className="p-8 flex flex-col flex-1">
-        {product.isBundle && (
-          <div className="bg-gold-gradient text-primary-foreground text-xs font-body font-bold tracking-widest uppercase px-4 py-2 rounded-sm self-start mb-4 -mt-2">
-            15% OFF — Best Value
-          </div>
-        )}
-
         <h3 className="font-display text-xl md:text-2xl font-semibold mb-2">{product.name}</h3>
         <p className="text-sm text-muted-foreground font-body mb-4 leading-relaxed">{product.description}</p>
 
@@ -45,25 +58,20 @@ const ProductCard = ({ product, index }: { product: typeof products[0]; index: n
             {Array.from({ length: 5 }).map((_, i) => (
               <Star
                 key={i}
-                className={`w-4 h-4 ${i < Math.floor(product.rating) ? "text-primary fill-primary" : "text-muted-foreground/30"}`}
+                className={`w-4 h-4 ${i < Math.floor(rating) ? "text-primary fill-primary" : "text-muted-foreground/30"}`}
               />
             ))}
           </div>
           <span className="text-xs text-muted-foreground font-body">
-            {product.rating}/5 ({product.reviews} reviews)
+            {rating}/5 ({reviews} reviews)
           </span>
         </div>
 
         <div className="flex items-end justify-between gap-4 mt-auto pt-4 border-t border-border/50">
         <div>
           <span className="font-display text-2xl font-semibold text-primary">
-            KSh {product.price.toLocaleString()}
+            KSh {price.toLocaleString()}
           </span>
-          {product.originalPrice && (
-            <span className="ml-2 text-sm text-muted-foreground line-through font-body">
-              KSh {product.originalPrice.toLocaleString()}
-            </span>
-          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -86,11 +94,23 @@ const ProductCard = ({ product, index }: { product: typeof products[0]; index: n
           </div>
 
           <button
-            onClick={() => { addToCart(product, qty); setQty(1); }}
+            onClick={() => { 
+              addToCart({
+                id: product._id,
+                name: product.name,
+                price: price,
+                rating: rating,
+                reviews: reviews,
+                description: product.description,
+                image: product.image_url
+              }, qty); 
+              setQty(1); 
+            }}
             className="flex items-center gap-2 px-5 py-2.5 bg-gold-gradient text-primary-foreground font-body text-xs font-bold tracking-widest uppercase rounded-sm hover:opacity-90 transition-opacity"
+            disabled={!product.in_stock}
           >
             <ShoppingBag className="w-4 h-4" />
-            {product.isBundle ? "Get the Bundle" : "Add"}
+            {product.in_stock ? 'Add' : 'Out of Stock'}
           </button>
         </div>
       </div>
@@ -102,6 +122,21 @@ const ProductCard = ({ product, index }: { product: typeof products[0]; index: n
 const ProductStore = () => {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: "-100px" });
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_URL}/products`)
+      .then(res => res.json())
+      .then(data => {
+        setProducts(data.products || []);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to fetch products:', err);
+        setLoading(false);
+      });
+  }, []);
 
   return (
     <section id="shop" className="section-spacing">
@@ -118,11 +153,15 @@ const ProductStore = () => {
           </h2>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.map((product, i) => (
-            <ProductCard key={product.id} product={product} index={i} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="text-center py-12">Loading products...</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {products.map((product, i) => (
+              <ProductCard key={product._id} product={product} index={i} />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

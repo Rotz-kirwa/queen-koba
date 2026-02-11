@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { ShoppingBag, Menu, X } from "lucide-react";
+import { ShoppingBag, Menu, X, User, LogOut } from "lucide-react";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 
 const Navbar = () => {
   const { itemCount, setIsOpen } = useCart();
+  const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const links = [
@@ -42,6 +44,26 @@ const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-4">
+          {user ? (
+            <div className="hidden md:flex items-center gap-3">
+              <span className="text-sm font-body text-muted-foreground">Hi, {user.name.split(' ')[0]}</span>
+              <button
+                onClick={logout}
+                className="p-2 text-foreground hover:text-primary transition-colors"
+                aria-label="Logout"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+          ) : (
+            <Link
+              to="/login"
+              className="hidden md:flex items-center gap-2 text-sm font-body text-muted-foreground hover:text-primary transition-colors"
+            >
+              <User className="w-5 h-5" />
+              Sign In
+            </Link>
+          )}
           <button
             onClick={() => setIsOpen(true)}
             className="relative p-2 text-foreground hover:text-primary transition-colors"
@@ -103,6 +125,29 @@ const Navbar = () => {
                       {l.label}
                     </Link>
                   ))}
+                  {user ? (
+                    <>
+                      <div className="text-sm text-[#E5D4B8] py-2 border-b border-[#3A3530]">
+                        Hi, {user.name}
+                      </div>
+                      <button
+                        onClick={() => { logout(); setMobileOpen(false); }}
+                        className="text-base tracking-widest uppercase text-white hover:text-[#D4AF37] transition-colors py-3 font-bold border-b border-[#3A3530] text-left flex items-center gap-2"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Sign Out
+                      </button>
+                    </>
+                  ) : (
+                    <Link
+                      to="/login"
+                      onClick={() => setMobileOpen(false)}
+                      className="text-base tracking-widest uppercase text-white hover:text-[#D4AF37] transition-colors py-3 font-bold border-b border-[#3A3530] flex items-center gap-2"
+                    >
+                      <User className="w-4 h-4" />
+                      Sign In
+                    </Link>
+                  )}
                 </div>
               </div>
             </motion.div>
